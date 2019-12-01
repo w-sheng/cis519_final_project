@@ -8,6 +8,9 @@ from sklearn.naive_bayes import GaussianNB
 def load_file(filename):
     raise NotImplementedError
 
+def load_sentence(sentence):
+    raise NotImplementedError
+
 def precision(y_pred, y_true):
     numerator = sum([ 1 if y_pred[i] == 1 and y_true[i] == 1 else 0 for i in range(len(y_pred)) ])
     denominator = sum(y_pred)
@@ -68,9 +71,10 @@ def create_tf_idf_matrix(term_document_matrix):
 
   return result
 
-def naive_bayes(train_x, train_y, dev_x, dev_y):
+def naive_bayes(train_x, train_y, dev_x, dev_y, test_x):
     train_x_normalized = (train_x - train_x.mean(axis=0)) / train_x.std(axis=0)
     dev_x_normalized = (dev_x - dev_x.mean(axis=0)) / dev_x.std(axis=0)
+    test_x_normalized = (test_x - test_x.mean(axis=0)) / test_x.std(axis=0)
 
     clf = GaussianNB()
     clf.fit(train_x_normalized, train_y)
@@ -85,18 +89,28 @@ def naive_bayes(train_x, train_y, dev_x, dev_y):
     drecall = recall(dy_pred, dev_y)
     dfscore = fscore(dy_pred, dev_y)
 
+    y_pred = clf.predict(test_x_normalized)
+
     train_performance = (tprecision, trecall, tfscore)
     dev_performance = (dprecision, drecall, dfscore)
-    return train_performance, dev_performance
+    return train_performance, dev_performance, y_pred
 
 if __name__ == '__main__':
+    sentence_to_augment = ""
+
     line_tuples_train, document_names_train, vocab_train, train_y = load_file('data/train.txt')
     line_tuples_dev, document_names_dev, vocab_dev, dev_y = load_file('data/dev.txt')
-    line_tuples_test, document_names_test, vocab_test, test_y = load_file('data/test.txt')
+    line_tuples_test, document_names_test, vocab_test = load_sentence(sentence_to_augment)
+
     td_train = create_td_matrix(line_tuples_train, document_names_train, vocab_train)
     td_dev = create_td_matrix(line_tuples_dev, document_names_dev, vocab_dev)
+    td_test = create_td_matrix(line_tuples_test, document_names_test, vocab_test)
+
     tf_idf_train = create_tf_idf_matrix(td_train)
     tf_idf_dev = create_tf_idf_matrix(td_dev)
-    train_performance, dev_performance = naive_bayes(tf_idf_train, train_y, tf_idf_dev, dev_y)
+    tf_idf_test = create_tf_idf_matrix(td_test)
+
+    train_performance, dev_performance, y_pred = naive_bayes(tf_idf_train, train_y, tf_idf_dev, dev_y, tf_idf_test)
     print("Training performance: ", train_performance)
     print("Development performance: ", dev_performance)
+    print("Sentence to augment: ", sentence_to_augment, " | Suggested emoji: ", y_pred)
