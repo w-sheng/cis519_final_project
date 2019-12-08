@@ -1,30 +1,84 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+import re
+import sys
 
 from collections import defaultdict
 from sklearn.naive_bayes import GaussianNB
 
 def load_file(filename):
-    raise NotImplementedError
+  '''
+  Loads file of text messages containing emojis into correct format for training.
+  Each line of the text messages file has the following format:
+    "Name of text recipient": "text content"
+  
+  Returns: line_tuples: tuple of document name and list of tokens in each text
+           document_names: list of names of text recipient of a text
+           vocab: list of unique tokens in all text messages
+           y: list of most frequent emoji in each text message
+  '''
+  RE_EMOJI = re.compile(r'\\u[0-9a-z]{4}')
+  
+  # helper function to parse data from each line of file
+  def parse_line(s):
+    split_line = s.split(': ', 1)
+    doc = split_line[0]
+    text_emoji = split_line[1]
+
+    # get text and most frequent emoji
+    text = RE_EMOJI.sub(r'', text_emoji)
+    all_emojis = RE_EMOJI.findall(text_emoji)
+    _, emoji = max([(all_emojis.count(e),e) for e in set(e)])
+
+    return text, doc, emoji
+
+  texts = []
+  y = []
+  document_names = []
+  vocab_set = set{}
+
+  with open(filename, 'rb') as f:
+    for line in f:
+      m = RE_EMOJI.match(line)
+      if m:
+        text, doc, emoji = parse_line(line)
+        texts.append(text)
+        document_names.append(doc)
+        y.append(emoji)
+        for token in text.split():
+          vocab_set.add(token) 
+
+  vocab = list(vocab_set)
+  line_tuples = list(zip(document_names, [text.split() for text in texts]))
+
+  return line_tuples, document_names, vocab, y
 
 def load_sentence(sentence):
-    raise NotImplementedError
+  vocab_set = set{}
+  for token in sentence.split():
+    vocab_set.add(token)
+  vocab = list(vocab_set)
+  
+  line_tuples = [tuple(('test_doc', [sentence.split()]))]
+  document_names = ['test_doc']
+  
+  return line_tuples, document_names, vocab
 
 def precision(y_pred, y_true):
-    numerator = sum([ 1 if y_pred[i] == 1 and y_true[i] == 1 else 0 for i in range(len(y_pred)) ])
-    denominator = sum(y_pred)
-    return float(numerator) / float(denominator)
+  numerator = sum([ 1 if y_pred[i] == 1 and y_true[i] == 1 else 0 for i in range(len(y_pred)) ])
+  denominator = sum(y_pred)
+  return float(numerator) / float(denominator)
 
 def recall(y_pred, y_true):
-    numerator = sum([ 1 if y_pred[i] == 1 and y_true[i] == 1 else 0 for i in range(len(y_pred)) ])
-    denominator = sum(y_true)
-    return float(numerator) / float(denominator)
+  numerator = sum([ 1 if y_pred[i] == 1 and y_true[i] == 1 else 0 for i in range(len(y_pred)) ])
+  denominator = sum(y_true)
+  return float(numerator) / float(denominator)
 
 def fscore(y_pred, y_true):
-    precision = get_precision(y_pred, y_true)
-    recall = get_recall(y_pred, y_true)
-    return float(2 * precision * recall) / float(precision + recall)
+  precision = get_precision(y_pred, y_true)
+  recall = get_recall(y_pred, y_true)
+  return float(2 * precision * recall) / float(precision + recall)
 
 def create_td_matrix(line_tuples, document_names, vocab):
   '''
@@ -72,31 +126,31 @@ def create_tf_idf_matrix(term_document_matrix):
   return result
 
 def naive_bayes(train_x, train_y, dev_x, dev_y, test_x):
-    train_x_normalized = (train_x - train_x.mean(axis=0)) / train_x.std(axis=0)
-    dev_x_normalized = (dev_x - dev_x.mean(axis=0)) / dev_x.std(axis=0)
-    test_x_normalized = (test_x - test_x.mean(axis=0)) / test_x.std(axis=0)
+  train_x_normalized = (train_x - train_x.mean(axis=0)) / train_x.std(axis=0)
+  dev_x_normalized = (dev_x - dev_x.mean(axis=0)) / dev_x.std(axis=0)
+  test_x_normalized = (test_x - test_x.mean(axis=0)) / test_x.std(axis=0)
 
-    clf = GaussianNB()
-    clf.fit(train_x_normalized, train_y)
+  clf = GaussianNB()
+  clf.fit(train_x_normalized, train_y)
 
-    ty_pred = clf.predict(train_x_normalized)
-    tprecision = precision(ty_pred, train_y)
-    trecall = recall(ty_pred, train_y)
-    tfscore = fscore(ty_pred, train_y)
+  ty_pred = clf.predict(train_x_normalized)
+  tprecision = precision(ty_pred, train_y)
+  trecall = recall(ty_pred, train_y)
+  tfscore = fscore(ty_pred, train_y)
 
-    dy_pred = clf.predict(dev_x_normalized)
-    dprecision = precision(dy_pred, dev_y)
-    drecall = recall(dy_pred, dev_y)
-    dfscore = fscore(dy_pred, dev_y)
+  dy_pred = clf.predict(dev_x_normalized)
+  dprecision = precision(dy_pred, dev_y)
+  drecall = recall(dy_pred, dev_y)
+  dfscore = fscore(dy_pred, dev_y)
 
-    y_pred = clf.predict(test_x_normalized)
+  y_pred = clf.predict(test_x_normalized)
 
-    train_performance = (tprecision, trecall, tfscore)
-    dev_performance = (dprecision, drecall, dfscore)
-    return train_performance, dev_performance, y_pred
+  train_performance = (tprecision, trecall, tfscore)
+  dev_performance = (dprecision, drecall, dfscore)
+  return train_performance, dev_performance, y_pred
 
 if __name__ == '__main__':
-    sentence_to_augment = ""
+    sentence_to_augment = sys.argv[1]
 
     line_tuples_train, document_names_train, vocab_train, train_y = load_file('data/train.txt')
     line_tuples_dev, document_names_dev, vocab_dev, dev_y = load_file('data/dev.txt')
