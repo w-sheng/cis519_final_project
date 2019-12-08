@@ -58,8 +58,11 @@ def parse_json_and_write_other_members_names_txt(json_filename, out):
   json_dict["messages"].reverse()
   for item in json_dict["messages"]:
     for x in item:
-      if (x == 'content'):
-        out.write(ftfy.fix_text(names + ": " + item[x] + '\n'))
+      if (item["sender_name"] == sender):
+          if (x == 'content'):
+            out.write(ftfy.fix_text(names + ": " + item[x] + '\n'))
+          #if (x == 'reactions'):
+           # out.write(ftfy.fix_text(names + ": " + item[x]["reaction"] + '\n'))
   f.close()
   return
 
