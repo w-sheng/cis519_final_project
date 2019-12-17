@@ -86,7 +86,7 @@ def trainAll(line_tuples_train, vocab_train, train_y, word_to_ix, line_tuples_de
     n_words_train = len(vocab_train)
 
     plot_every = 100
-    n_iters = 10000
+    n_iters = 2000
     n_hidden = 128
     embedding_dim = 100
 
@@ -178,7 +178,16 @@ if __name__ == '__main__':
 
     model = trainAll(line_tuples_train, vocab, train_y, vocab_to_id, line_tuples_dev, dev_y)
 
-    texts = ["Haha funny", "nice", "wow", "damn", "holy"]
+    texts = ["i love you",
+             "oh i'm sorry i'm so lit i try to be sad",
+             "I like the look of that dress",
+             "lol testing this!!",
+             "lol this is a test text",
+             "omg i failed",
+             "omg i think i failed my exam lol",
+             "omg amazing thank you so much!!!!!",
+             "woah this is so cool yay",
+             "interesting.. this model is kinda weird"]
     hidden = model.init_hidden()
     for text in texts:
         for word in text.split():
