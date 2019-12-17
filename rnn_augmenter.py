@@ -85,8 +85,8 @@ def trainAll(line_tuples_train, vocab_train, train_y, word_to_ix, line_tuples_de
     n_categories_train = len(set(train_y))
     n_words_train = len(vocab_train)
 
-    plot_every = 1000
-    n_iters = 20000
+    plot_every = 100
+    n_iters = 10000
     n_hidden = 128
     embedding_dim = 100
 
@@ -126,10 +126,26 @@ def trainAll(line_tuples_train, vocab_train, train_y, word_to_ix, line_tuples_de
 
     return rnn
 
+def split_file(file, file_length, sample_length, output_1, output_2):
+    skipping = random.sample(range(file_length), sample_length)
+    input = open(file)
+    output_train = open(output_1, 'w')
+    output_dev = open(output_2, 'w')
+    for i, line in enumerate(input):
+        if i in skipping:
+            output_dev.write(line)
+        else:
+            output_train.write(line)
+    input.close()
+    output_train.close()
+    output_dev.close()
+
 if __name__ == '__main__':
+    # split_file('../michael_emoji.txt', 2878, 500, '../michael_emoji_train.txt', '../michael_emoji_test.txt')
+
     torch.manual_seed(1)
-    line_tuples_train, vocab_train, train_y = ta.load_file('../emoji_file.txt')
-    line_tuples_dev, vocab_dev, dev_y = ta.load_file('../test_file.txt')
+    line_tuples_train, vocab_train, train_y = ta.load_file('../michael_emoji_train.txt')
+    line_tuples_dev, vocab_dev, dev_y = ta.load_file('../michael_emoji_test.txt')
     vocab = list(set(vocab_train + vocab_dev))
     vocab_to_id = dict(zip(vocab, range(0, len(vocab))))
 

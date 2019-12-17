@@ -12,7 +12,7 @@ def load_file(filename):
   Loads file of text messages containing emojis into correct format for training.
   Each line of the text messages file has the following format:
     "Name of text recipient": "text content"
-  
+
   Returns: line_tuples: tuple of document name and list of tokens in each text
            document_names: list of names of text recipient of a text
            vocab: list of unique tokens in all text messages
@@ -31,7 +31,7 @@ def load_file(filename):
     _, emoji = max([(all_emojis.count(e),e) for e in set(all_emojis)])
 
     return text, emoji
-  
+
   texts = []
   y = []
   vocab_set = set()
@@ -45,7 +45,7 @@ def load_file(filename):
           texts.append(text)
           y.append(emoji)
           for token in text.split():
-            vocab_set.add(token) 
+            vocab_set.add(token)
 
   vocab = list(vocab_set)
   line_tuples = [text.split() for text in texts]
@@ -59,7 +59,7 @@ def load_sentence(sentence):
   vocab = list(vocab_set)
 
   line_tuples = [sentence.split()]
-  
+
   return line_tuples, vocab
 
 def precision(y_pred, y_true):
@@ -189,7 +189,7 @@ if __name__ == '__main__':
       else:
         new_y.append(counter)
         emoji_to_int[emoji] = counter
-        int_to_emoji[counter] = emoji 
+        int_to_emoji[counter] = emoji
         emoji_to_freq[emoji] = 1
         counter += 1
     train_y = new_y
