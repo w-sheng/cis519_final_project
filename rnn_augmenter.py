@@ -11,17 +11,19 @@ import time
 import numpy as np
 import text_augmentation as ta
 import matplotlib.pyplot as plt
+from pymagnitude import *
 from sklearn.metrics import accuracy_score
 from torch.autograd import Variable
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 class WordRNNClassify(nn.Module):
-    def __init__(self, input_size, output_size, vocab_size, hidden_size=128):
+    def __init__(self, weights_matrix, input_size, output_size, vocab_size, hidden_size=256):
         super(WordRNNClassify, self).__init__()
 #       self.input_size = input_size
 #       self.output_size = output_size
-        self.embeddings = nn.Embedding(vocab_size, input_size)
+        self.embeddings = nn.Embedding.from_pretrained(weights_matrix)
+
         self.hidden_size = hidden_size
 
         self.lstm = nn.LSTMCell(input_size, hidden_size)
@@ -81,19 +83,21 @@ def trainOneEpoch(model, criterion, optimizer, X, y, word_to_ix):
 
     return output, loss.item()
 
-def trainAll(line_tuples_train, vocab_train, train_y, word_to_ix, line_tuples_dev, dev_y):
+def trainAll(line_tuples_train, vocab_train, train_y, word_to_ix, line_tuples_dev, dev_y, weights_matrix):
     n_categories_train = len(set(train_y))
     n_words_train = len(vocab_train)
 
-    plot_every = 100
-    n_iters = 2000
-    n_hidden = 128
-    embedding_dim = 100
+    plot_every = 25
+    n_iters = 1000
+    n_hidden = 256
+    embedding_dim = 300
 
-    rnn = WordRNNClassify(embedding_dim, n_categories_train, n_words_train, n_hidden)
+    rnn = WordRNNClassify(weights_matrix, embedding_dim, n_categories_train, n_words_train, n_hidden)
 
     criterion = nn.NLLLoss()
+    # optimizer = torch.optim.SGD(rnn.parameters(), lr=0.002)
     optimizer = torch.optim.Adam(rnn.parameters(), lr=0.002)
+    # optimizer = torch.optim.RMSprop(rnn.parameters(), lr=0.002)
 
     current_loss = 0
     all_losses = []
@@ -103,11 +107,14 @@ def trainAll(line_tuples_train, vocab_train, train_y, word_to_ix, line_tuples_de
         output, loss = trainOneEpoch(rnn, criterion, optimizer, line_tuples_train, train_y, word_to_ix)
         current_loss += loss
         if iter % plot_every == 0:
-            all_losses.append(current_loss / plot_every)
-            all_accs.append(calculateAccuracy(rnn, line_tuples_train, train_y, word_to_ix))
-            dev_accs.append(calculateAccuracy(rnn, line_tuples_dev, dev_y, word_to_ix))
+            loss = current_loss / plot_every
+            train_acc = calculateAccuracy(rnn, line_tuples_train, train_y, word_to_ix)
+            test_acc = calculateAccuracy(rnn, line_tuples_dev, dev_y, word_to_ix)
+            all_losses.append(loss)
+            all_accs.append(train_acc)
+            dev_accs.append(test_acc)
+            print("Iteration:", iter, "Loss", loss, "Train Acc", train_acc, "Test Acc", test_acc)
             current_loss = 0
-            print(iter)
 
     _, axs = plt.subplots(1,3)
     axs[0].set_title('Training Loss')
@@ -144,10 +151,23 @@ if __name__ == '__main__':
     # split_file('../michael_emoji.txt', 2878, 500, '../michael_emoji_train.txt', '../michael_emoji_test.txt')
 
     torch.manual_seed(1)
+
     line_tuples_train, vocab_train, train_y = ta.load_file('../michael_emoji_train.txt')
     line_tuples_dev, vocab_dev, dev_y = ta.load_file('../michael_emoji_test.txt')
     vocab = list(set(vocab_train + vocab_dev))
     vocab_to_id = dict(zip(vocab, range(0, len(vocab))))
+
+    vectors = Magnitude("../crawl-300d-2M.magnitude")
+    matrix_len = len(vocab)
+    weights_matrix = np.zeros((matrix_len, 300))
+
+    for i, word in enumerate(vocab):
+        if word in vectors:
+            weights_matrix[i] = vectors.query(word)
+        else:
+            weights_matrix[i] = np.random.normal(scale=0.1, size=(300))
+
+    weights_matrix = torch.FloatTensor(weights_matrix)
 
     emoji_to_int = dict()
     int_to_emoji = dict()
@@ -176,7 +196,7 @@ if __name__ == '__main__':
             new_y.append(-1)
     dev_y = new_y
 
-    model = trainAll(line_tuples_train, vocab, train_y, vocab_to_id, line_tuples_dev, dev_y)
+    model = trainAll(line_tuples_train, vocab, train_y, vocab_to_id, line_tuples_dev, dev_y, weights_matrix)
 
     texts = ["i love you",
              "oh i'm sorry i'm so lit i try to be sad",

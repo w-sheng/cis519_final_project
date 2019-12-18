@@ -80,8 +80,8 @@ if __name__ == '__main__':
              "woah this is so cool yay",
              "interesting.. this model is kinda weird"]
 
-    X_train, y_train, emojis = load_file('../michael_emoji_train.txt')
-    X_dev, y_dev, _ = load_file('../michael_emoji_test.txt')
+    X_train, y_train, emojis = load_file('../emoji_file.txt')
+    X_dev, y_dev, _ = load_file('../test_file.txt')
 
     # get text features
     tfidf = TfidfVectorizer(max_features=10000, stop_words = list(ENGLISH_STOP_WORDS))
@@ -90,8 +90,8 @@ if __name__ == '__main__':
 
     # choose a classifier model to train
     # clf = GaussianNB()
-    clf = KNeighborsClassifier()
-    # clf = MLPClassifier()
+    # clf = KNeighborsClassifier()
+    clf = MLPClassifier()
     # clf = AdaBoostClassifier()
     clf.fit(vector.todense(), y_train)
 
@@ -119,7 +119,9 @@ if __name__ == '__main__':
       most_prob = np.argmax(probs)
       print('-->', text, '=', clf.classes_[most_prob])
 
+      indices,_ = zip(*sorted(enumerate(probs), key=lambda pair: pair[1], reverse=True))
+
       # other non-predicted emoji probabilities
-      # print('-->', text)
-      # for i in above_0:
-      #   print('\t', clf.classes_[i], ': ', probs.flatten()[i])
+      print('-->', text)
+      for i in indices[:10]:
+        print('\t', clf.classes_[i], ': ', probs.flatten()[i])
