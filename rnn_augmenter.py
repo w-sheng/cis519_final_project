@@ -18,7 +18,7 @@ from torch.autograd import Variable
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 class WordRNNClassify(nn.Module):
-    def __init__(self, weights_matrix, input_size, output_size, vocab_size, hidden_size=256):
+    def __init__(self, weights_matrix, input_size, output_size, vocab_size, hidden_size=1024):
         super(WordRNNClassify, self).__init__()
 #       self.input_size = input_size
 #       self.output_size = output_size
@@ -83,13 +83,14 @@ def trainOneEpoch(model, criterion, optimizer, X, y, word_to_ix):
 
     return output, loss.item()
 
-def trainAll(line_tuples_train, vocab_train, train_y, word_to_ix, line_tuples_dev, dev_y, weights_matrix):
+def trainAll(line_tuples_train, vocab_train, train_y, word_to_ix, line_tuples_dev, dev_y, weights_matrix, test_file):
     n_categories_train = len(set(train_y))
     n_words_train = len(vocab_train)
 
-    plot_every = 25
+    plot_every = 50
     n_iters = 1000
-    n_hidden = 256
+    n_hidden = int((len(vocab_train) + len(set(train_y))) / 2)
+    print("Hidden layer size", n_hidden)
     embedding_dim = 300
 
     rnn = WordRNNClassify(weights_matrix, embedding_dim, n_categories_train, n_words_train, n_hidden)
@@ -115,20 +116,33 @@ def trainAll(line_tuples_train, vocab_train, train_y, word_to_ix, line_tuples_de
             dev_accs.append(test_acc)
             print("Iteration:", iter, "Loss", loss, "Train Acc", train_acc, "Test Acc", test_acc)
             current_loss = 0
+            if iter == n_iters:
+                y_pred = []
+                test_file_open = open(test_file)
+                for line in test_file_open:
+                    hidden = rnn.init_hidden()
+                    for word in line.split():
+                        X_train_tensor = torch.tensor([word_to_ix[word]], dtype=torch.long)
+                        X_embedding = rnn.embeddings(X_train_tensor)
+                        output, hidden = rnn(X_embedding, hidden)
+                    top_n, top_i = output.topk(1)
+                    category_i = top_i[0].item()
+                    print(line, int_to_emoji[category_i], top_n[0].item())
+                test_file_open.close()
 
-    _, axs = plt.subplots(1,3)
+    _, axs = plt.subplots(1,2)
     axs[0].set_title('Training Loss')
     axs[1].set_title('Training Accuracy')
-    axs[2].set_title('Development Accuracy')
+    # axs[2].set_title('Development Accuracy')
     axs[0].plot(all_losses)
     axs[1].plot(all_accs)
-    axs[2].plot(dev_accs)
+    # axs[2].plot(dev_accs)
     axs[0].set(xlabel="Iteration")
     axs[1].set(xlabel="Iteration")
-    axs[2].set(xlabel="Iteration")
+    # axs[2].set(xlabel="Iteration")
     axs[0].set(ylabel="Loss")
     axs[1].set(ylabel="Accuracy")
-    axs[2].set(ylabel="Accuracy")
+    # axs[2].set(ylabel="Accuracy")
     plt.show()
 
     return rnn
@@ -154,10 +168,19 @@ if __name__ == '__main__':
 
     line_tuples_train, vocab_train, train_y = ta.load_file('../michael_emoji_train.txt')
     line_tuples_dev, vocab_dev, dev_y = ta.load_file('../michael_emoji_test.txt')
-    vocab = list(set(vocab_train + vocab_dev))
+
+    test_vocab = set()
+    test_file = open('michael-gpt2.txt')
+    for line in test_file:
+        for word in line.split():
+            test_vocab.add(word)
+    test_file.close()
+    test_vocab = list(test_vocab)
+
+    vocab = list(set(vocab_train + vocab_dev + test_vocab))
     vocab_to_id = dict(zip(vocab, range(0, len(vocab))))
 
-    vectors = Magnitude("../crawl-300d-2M.magnitude")
+    vectors = Magnitude("../glove.6B.300d.magnitude")
     matrix_len = len(vocab)
     weights_matrix = np.zeros((matrix_len, 300))
 
@@ -196,26 +219,36 @@ if __name__ == '__main__':
             new_y.append(-1)
     dev_y = new_y
 
-    model = trainAll(line_tuples_train, vocab, train_y, vocab_to_id, line_tuples_dev, dev_y, weights_matrix)
+    model = trainAll(line_tuples_train, vocab, train_y, vocab_to_id, line_tuples_dev, dev_y, weights_matrix, 'michael-gpt2.txt')
 
-    texts = ["i love you",
-             "oh i'm sorry i'm so lit i try to be sad",
-             "I like the look of that dress",
-             "lol testing this!!",
-             "lol this is a test text",
-             "omg i failed",
-             "omg i think i failed my exam lol",
-             "omg amazing thank you so much!!!!!",
-             "woah this is so cool yay",
-             "interesting.. this model is kinda weird"]
-    hidden = model.init_hidden()
-    for text in texts:
-        for word in text.split():
-            if word in vocab_to_id:
-                X_train_tensor = torch.tensor([vocab_to_id[word]], dtype=torch.long)
-                X_embedding = model.embeddings(X_train_tensor)
-                output, hidden = model(X_embedding, hidden)
-        top_n, top_i = output.topk(10)
-        for i in range(10):
-            category_i = top_i[0][i].item()
-            print(text, int_to_emoji[category_i], top_n[0][i].item())
+    # texts = ["i love you",
+    #          "oh i'm sorry i'm so lit i try to be sad",
+    #          "I like the look of that dress",
+    #          "lol testing this!!",
+    #          "lol this is a test text",
+    #          "omg i failed",
+    #          "omg i think i failed my exam lol",
+    #          "omg amazing thank you so much!!!!!",
+    #          "woah this is so cool yay",
+    #          "interesting.. this model is kinda weird"]
+    # for text in texts:
+
+    # while True:
+    #     text = str(input())
+    #     if text == "kill -9":
+    #         break;
+    #     else:
+    #         hidden = model.init_hidden()
+    #         for word in text.split():
+    #             if word in vocab_to_id:
+    #                 X_train_tensor = torch.tensor([vocab_to_id[word]], dtype=torch.long)
+    #                 X_embedding = model.embeddings(X_train_tensor)
+    #                 output, hidden = model(X_embedding, hidden)
+    #         top_n, top_i = output.topk(1)
+    #         category_i = top_i[0].item()
+    #         print(text, int_to_emoji[category_i], top_n[0].item())
+
+            # top_n, top_i = output.topk(10)
+            # for i in range(10):
+            #     category_i = top_i[0][i].item()
+            #     print(text, int_to_emoji[category_i], top_n[0][i].item())
