@@ -87,9 +87,10 @@ def trainAll(line_tuples_train, vocab_train, train_y, word_to_ix, line_tuples_de
     n_categories_train = len(set(train_y))
     n_words_train = len(vocab_train)
 
-    plot_every = 50
-    n_iters = 1000
-    n_hidden = int((len(vocab_train) + len(set(train_y))) / 2)
+    plot_every = 10
+    n_iters = 2400
+    # n_hidden = int((len(vocab_train) + len(set(train_y))) / 2)
+    n_hidden = 128
     print("Hidden layer size", n_hidden)
     embedding_dim = 300
 
@@ -106,44 +107,45 @@ def trainAll(line_tuples_train, vocab_train, train_y, word_to_ix, line_tuples_de
     dev_accs = []
     for iter in range(1, n_iters + 1):
         output, loss = trainOneEpoch(rnn, criterion, optimizer, line_tuples_train, train_y, word_to_ix)
-        current_loss += loss
+        # current_loss += loss
         if iter % plot_every == 0:
-            loss = current_loss / plot_every
-            train_acc = calculateAccuracy(rnn, line_tuples_train, train_y, word_to_ix)
-            test_acc = calculateAccuracy(rnn, line_tuples_dev, dev_y, word_to_ix)
-            all_losses.append(loss)
-            all_accs.append(train_acc)
-            dev_accs.append(test_acc)
-            print("Iteration:", iter, "Loss", loss, "Train Acc", train_acc, "Test Acc", test_acc)
-            current_loss = 0
+            print(iter)
+        #     loss = current_loss / plot_every
+        #     train_acc = calculateAccuracy(rnn, line_tuples_train, train_y, word_to_ix)
+        #     test_acc = calculateAccuracy(rnn, line_tuples_dev, dev_y, word_to_ix)
+        #     all_losses.append(loss)
+        #     all_accs.append(train_acc)
+        #     dev_accs.append(test_acc)
+        #     print("Iteration:", iter, "Loss", loss, "Train Acc", train_acc, "Test Acc", test_acc)
+        #     current_loss = 0
             if iter == n_iters:
-                y_pred = []
                 test_file_open = open(test_file)
                 for line in test_file_open:
                     hidden = rnn.init_hidden()
                     for word in line.split():
-                        X_train_tensor = torch.tensor([word_to_ix[word]], dtype=torch.long)
-                        X_embedding = rnn.embeddings(X_train_tensor)
-                        output, hidden = rnn(X_embedding, hidden)
+                        if word in word_to_ix:
+                            X_train_tensor = torch.tensor([word_to_ix[word]], dtype=torch.long)
+                            X_embedding = rnn.embeddings(X_train_tensor)
+                            output, hidden = rnn(X_embedding, hidden)
                     top_n, top_i = output.topk(1)
                     category_i = top_i[0].item()
                     print(line, int_to_emoji[category_i], top_n[0].item())
                 test_file_open.close()
 
-    _, axs = plt.subplots(1,2)
-    axs[0].set_title('Training Loss')
-    axs[1].set_title('Training Accuracy')
+    # _, axs = plt.subplots(1,3)
+    # axs[0].set_title('Training Loss')
+    # axs[1].set_title('Training Accuracy')
     # axs[2].set_title('Development Accuracy')
-    axs[0].plot(all_losses)
-    axs[1].plot(all_accs)
+    # axs[0].plot(all_losses)
+    # axs[1].plot(all_accs)
     # axs[2].plot(dev_accs)
-    axs[0].set(xlabel="Iteration")
-    axs[1].set(xlabel="Iteration")
-    # axs[2].set(xlabel="Iteration")
-    axs[0].set(ylabel="Loss")
-    axs[1].set(ylabel="Accuracy")
+    # axs[0].set(xlabel="Iteration (100s)")
+    # axs[1].set(xlabel="Iteration (100s)")
+    # axs[2].set(xlabel="Iteration (100s)")
+    # axs[0].set(ylabel="Loss")
+    # axs[1].set(ylabel="Accuracy")
     # axs[2].set(ylabel="Accuracy")
-    plt.show()
+    # plt.show()
 
     return rnn
 
@@ -221,33 +223,55 @@ if __name__ == '__main__':
 
     model = trainAll(line_tuples_train, vocab, train_y, vocab_to_id, line_tuples_dev, dev_y, weights_matrix, 'michael-gpt2.txt')
 
-    # texts = ["i love you",
-    #          "oh i'm sorry i'm so lit i try to be sad",
-    #          "I like the look of that dress",
-    #          "lol testing this!!",
-    #          "lol this is a test text",
-    #          "omg i failed",
-    #          "omg i think i failed my exam lol",
-    #          "omg amazing thank you so much!!!!!",
-    #          "woah this is so cool yay",
-    #          "interesting.. this model is kinda weird"]
-    # for text in texts:
-
+    texts = ["i love you",
+             "oh i'm sorry i'm so lit i try to be sad",
+             "I like the look of that dress",
+             "lol testing this!!",
+             "lol this is a test text",
+             "omg i failed",
+             "omg i think i failed my exam lol",
+             "omg amazing thank you so much!!!!!",
+             "woah this is so cool yay",
+             "interesting.. this model is kinda weird",
+             "well, i'm in dave's town.",
+             "no, i absolutely love paris. and i tell my friends about it when i pass by it sometimes, i even painted my bedroom windows. i hope you see me there with my friend a lot. i really are so blessed and lucky to have such a great AR",
+             "i love beer",
+             "oh, i'm sorry i'm so lit... i try to be funny",
+             "yeah... k?",
+             "its good to meet each other.",
+             "well, I tried to commit suicide by squirting liquid into my heart every so often... But I just didn't die right. i'm lucky.",
+             "news of her family changes your heart too.",
+             "wtf, definitely made-up. it sure makes you feel weird when someone else appears.",
+             "well, i'm bi, but nice guy nathan,",
+             "Sure, why not from here?",
+             "I will get you some sandwiches to go. Kinda what I would like to have something light.",
+             "Aw, worry not we'll find something in here",
+             "I like the look of that dress."]
+    for text in texts:
+        hidden = model.init_hidden()
+        for word in text.split():
+            if word in vocab_to_id:
+                X_train_tensor = torch.tensor([vocab_to_id[word]], dtype=torch.long)
+                X_embedding = model.embeddings(X_train_tensor)
+                output, hidden = model(X_embedding, hidden)
+        top_n, top_i = output.topk(1)
+        category_i = top_i[0].item()
+        print(text, int_to_emoji[category_i], top_n[0].item())
     # while True:
     #     text = str(input())
     #     if text == "kill -9":
     #         break;
     #     else:
-    #         hidden = model.init_hidden()
-    #         for word in text.split():
-    #             if word in vocab_to_id:
-    #                 X_train_tensor = torch.tensor([vocab_to_id[word]], dtype=torch.long)
-    #                 X_embedding = model.embeddings(X_train_tensor)
-    #                 output, hidden = model(X_embedding, hidden)
-    #         top_n, top_i = output.topk(1)
-    #         category_i = top_i[0].item()
-    #         print(text, int_to_emoji[category_i], top_n[0].item())
-
+            # hidden = model.init_hidden()
+            # for word in text.split():
+            #     if word in vocab_to_id:
+            #         X_train_tensor = torch.tensor([vocab_to_id[word]], dtype=torch.long)
+            #         X_embedding = model.embeddings(X_train_tensor)
+            #         output, hidden = model(X_embedding, hidden)
+            # top_n, top_i = output.topk(1)
+            # category_i = top_i[0].item()
+            # print(text, int_to_emoji[category_i], top_n[0].item())
+            #
             # top_n, top_i = output.topk(10)
             # for i in range(10):
             #     category_i = top_i[0][i].item()
